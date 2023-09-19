@@ -35,6 +35,10 @@ contract FriendTechProxy is Ownable {
     event Transfer(address indexed sharesSubject, address indexed from, address indexed to, uint256 value);
     event Approval(address indexed sharesSubject, address indexed from, address indexed to, uint256 value);
 
+    receive() external payable {}
+
+    fallback() external payable {}
+
     // If for some reason ERC20 tokens of value gets transferred into this contract, allow withdrawal
     function emergencyWithdraw(address _token, address _to, uint256 _amount) external onlyOwner {
         IERC20(_token).transfer(_to, _amount);

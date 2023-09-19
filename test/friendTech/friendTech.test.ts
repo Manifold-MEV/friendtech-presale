@@ -429,6 +429,128 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
     })
 
     test("Buy and sell shares test", async () => {
+      // Initialize account1 market
+      const buyFirstShareRequest = await publicClient.simulateContract({
+        account: account1,
+        address: friendTechContractAddress,
+        abi: iFriendtechSharesV1ABI,
+        functionName: "buyShares",
+        args: [account1, 1n],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(buyFirstShareRequest.request);
+
+      const sharesToSnipe = 30n
+      const priceRead1 : bigint = await publicClient.readContract({
+          address: friendTechContractAddress,
+          abi: iFriendtechSharesV1ABI,
+          functionName: "getBuyPriceAfterFee",
+          args: [account1, sharesToSnipe]
+      }) as bigint
+
+      // account2 buy account1 using proxy contract
+      const snipeShareRequest = await publicClient.simulateContract({
+        account: account2,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "buyShares",
+        args: [account1, account2, sharesToSnipe],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n,
+        value: priceRead1
+      })
+
+      await walletClient.writeContract(snipeShareRequest.request);
+      await testClient.mine({ blocks: 1 });
+
+      const shareRead1 = await publicClient.readContract({
+        address: friendTechContractAddress,
+        abi: iFriendtechSharesV1ABI,
+        functionName: "sharesBalance",
+        args: [account1, proxyContractAddress]
+      })
+
+      assert.equal(shareRead1, 30n);
+
+      const internalBalanceRead1 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "internalBalances",
+        args: [account1, account2]
+      })
+
+      assert.equal(internalBalanceRead1, 30n);
+
+      const priceRead2 : bigint = await publicClient.readContract({
+          address: friendTechContractAddress,
+          abi: iFriendtechSharesV1ABI,
+          functionName: "getSellPriceAfterFee",
+          args: [account1, sharesToSnipe]
+      }) as bigint
+
+      // Try to sell more than the account owns
+      try {
+        await publicClient.simulateContract({
+          account: account2,
+          address: proxyContractAddress,
+          abi: friendTechProxyABI,
+          functionName: "sellShares",
+          args: [account1, account2, 31n],
+          maxFeePerGas: parseGwei("0.17"),
+          maxPriorityFeePerGas: parseGwei("0.17"),
+          gas: 3000000n
+        })
+      } catch (e) {
+        assert(String(e).includes("Not enough shares to sell"))
+      }
+
+      // account2 sell account1 using proxy contract
+      const sellSharesRequest = await publicClient.simulateContract({
+        account: account2,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "sellShares",
+        args: [account1, account2, sharesToSnipe],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(sellSharesRequest.request);
+      await testClient.mine({ blocks: 1 });
+
+      const internalBalanceRead2 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "internalBalances",
+        args: [account1, account2]
+      })
+
+      assert.equal(internalBalanceRead2, 0n);
+
+      const shareRead2 = await publicClient.readContract({
+        address: friendTechContractAddress,
+        abi: iFriendtechSharesV1ABI,
+        functionName: "sharesBalance",
+        args: [account1, proxyContractAddress]
+      })
+
+      assert.equal(shareRead2, 0n);
+
+      const newBalance = await publicClient.getBalance({ 
+        address: account2,
+      })
+
+      const delta = priceRead1 - priceRead2;
+      const approxBalance = parseEther("50") - delta
+
+      if (newBalance < approxBalance - parseEther("0.01") || newBalance > approxBalance + parseEther("0.01")) {
+        assert(false)
+      }
     })
 
     test("Presale tests", async () => {
