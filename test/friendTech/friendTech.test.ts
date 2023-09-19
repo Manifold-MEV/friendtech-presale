@@ -24,7 +24,7 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
       ownerOfProxyContract = (await walletClient.getAddresses())[0];
       account1 = (await walletClient.getAddresses())[1];
       account2 = (await walletClient.getAddresses())[2];
-      account3 = (await walletClient.getAddresses())[2];
+      account3 = (await walletClient.getAddresses())[3];
 
       await testClient.setBalance({
         address: ownerOfProxyContract,
@@ -191,8 +191,8 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
         account: account2,
         address: proxyContractAddress,
         abi: friendTechProxyABI,
-        functionName: "snipeShares",
-        args: [sharesToSnipe],
+        functionName: "buyShares",
+        args: [account1, account2, sharesToSnipe],
         maxFeePerGas: parseGwei("0.17"),
         maxPriorityFeePerGas: parseGwei("0.17"),
         gas: 3000000n,
@@ -200,6 +200,29 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
       })
 
       await walletClient.writeContract(snipeShareRequest.request);
+      await testClient.mine({ blocks: 1 })
+
+      const priceRead2 : bigint = await publicClient.readContract({
+        address: friendTechContractAddress,
+        abi: iFriendtechSharesV1ABI,
+        functionName: "getBuyPriceAfterFee",
+        args: [account2, 1n]
+      }) as bigint
+
+      // account2 buy account1 using proxy contract
+      const snipeShareRequest2 = await publicClient.simulateContract({
+        account: account2,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "buyShares",
+        args: [account2, account2, 1n],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n,
+        value: priceRead2
+      })
+
+      await walletClient.writeContract(snipeShareRequest2.request);
       await testClient.mine({ blocks: 1 })
 
       // account3 try to transfer but fail because it doesn't have any shares
@@ -224,7 +247,7 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
         address: proxyContractAddress,
         abi: friendTechProxyABI,
         functionName: "transferShares",
-        args: [account3, account1, 1n],
+        args: [account1, account3, 1n],
         maxFeePerGas: parseGwei("0.17"),
         maxPriorityFeePerGas: parseGwei("0.17"),
         gas: 3000000n
@@ -251,6 +274,46 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
 
       assert.equal(internalBalanceRead2, 29n);
 
-      // account2 transferMany account1 & account2 to account3
+      // account2 transferMany account1 & account2 to account3 & account1
+      const transferManyRequest1 = await publicClient.simulateContract({
+        account: account2,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "transferMany",
+        args: [[account1, account2], [account3, account1], [29n, 1n]],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(transferManyRequest1.request);
+      await testClient.mine({ blocks: 1 })
+
+      const internalBalanceRead3 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "internalBalances",
+        args: [account1, account3]
+      })
+
+      assert.equal(internalBalanceRead3, 30n);
+
+      const internalBalanceRead4 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "internalBalances",
+        args: [account2, account1]
+      })
+
+      assert.equal(internalBalanceRead4, 1n);
+    })
+
+    test("Approval & transfer from tests", async () => {
+    })
+
+    test("Buy and sell shares test", async () => {
+    })
+
+    test("Presale tests", async () => {
     })
 })

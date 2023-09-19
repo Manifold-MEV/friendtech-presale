@@ -14,8 +14,8 @@ contract FriendTechProxy is Ownable {
     IFriendtechSharesV1 public constant friendTech = IFriendtechSharesV1(0xCF205808Ed36593aa40a44F10c7f7C2F67d4A4d4);
     // Internal Key Balances for SharesSubject => (User => Balance)
     mapping(address => mapping(address => uint256)) public internalBalances;
-    // Internal Key Approvals for SharesSubject => (User => Balance)
-    mapping(address => mapping(address => uint256)) public approvals;
+    // Internal Key Approvals for SharesSubject => (User => (Approvee => Balance))
+    mapping(address => mapping(address => mapping(address => uint256))) public approvals;
     // Whitelist for SharesSubject => (Buyer => keysAllowed)
     mapping(address => mapping(address => uint256)) public whitelist;
     // Contributions for SharesSubject => (Buyer => keysBought)
@@ -57,8 +57,7 @@ contract FriendTechProxy is Ownable {
     }
 
     function _approve(address _sharesSubject, address _from, address _to, uint256 _amount) internal {
-        approvals[_sharesSubject][_from] = approvals[_sharesSubject][_from].sub(_amount);
-        approvals[_sharesSubject][_to] = approvals[_sharesSubject][_to].add(_amount);
+        approvals[_sharesSubject][_from][_to] = _amount;
         
         emit Approval(_sharesSubject, _from, _to, _amount);
     }
@@ -77,6 +76,21 @@ contract FriendTechProxy is Ownable {
         }
     }
 
+    function _spendAllowance(address _sharesSubject, address _owner, address _spender, uint256 _amount) internal {
+        uint256 currentAllowance = approvals[_sharesSubject][_owner][_spender];
+        if (currentAllowance != type(uint256).max) {
+            require(currentAllowance >= _amount, "Not enough approved");
+            _approve(_sharesSubject, _owner, _spender, currentAllowance.sub(_amount));
+        }
+    }
+
+    // Transfers from address, spends allowance
+    function transferFrom(address _sharesSubject, address _from, address _to, uint256 _amount) external {
+        address spender = msg.sender;
+        _spendAllowance(_sharesSubject, _from, spender, _amount);
+        _transfer(_sharesSubject, _from, _to, _amount);
+    }
+
     // Approve shares from current owner to aprovee.
     function approve(address _sharesSubject, address _to, uint256 _amount) external {
         _approve(_sharesSubject, msg.sender, _to, _amount);
@@ -88,7 +102,6 @@ contract FriendTechProxy is Ownable {
             _approve(_sharesSubjects[i], msg.sender, _toAddresses[i], _amounts[i]);
         }
     }
-
 
     // Contribute to presale
     function contribute(address _sharesSubject, uint256 _keys) external payable {
