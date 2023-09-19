@@ -86,9 +86,10 @@ However, transferrability of keys has many use cases.
 - `msg.sender` settles all contributors in the presale, transferring them the corresponding number of keys that they purchased
 - Reverts if presale has already been settled
 - Receiver of the key(s) can hold/transfer/sell the key(s)
+- If account creator wants to impose some sort of pre-communicated lockup, they can do so by calling this function later. However, they won't be able to claim proceeds until this function has been called in order to ensure settlement to contributors.
 
 ## Deployments
 
-Base: `0x6B3D9Cf1c82e442cC085FddF98ec8BE56450FFE5`
+Base: `0x1a7D3f98036CB9FbE658e21c0EBF2482f535cf06`
 
-You can find the verified code on: https://basescan.org/address/0x6b3d9cf1c82e442cc085fddf98ec8be56450ffe5#code
+You can find the verified code on: https://basescan.org/address/0x1a7D3f98036CB9FbE658e21c0EBF2482f535cf06#code

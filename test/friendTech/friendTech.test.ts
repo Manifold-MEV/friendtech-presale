@@ -737,37 +737,6 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
       assert.equal(contributionsArrayRead2[0], account3)
       assert.equal(contributionsArrayRead2[1], 2n)
 
-      const claimProceedsRequest = await publicClient.simulateContract({
-        account: account1,
-        address: proxyContractAddress,
-        abi: friendTechProxyABI,
-        functionName: "claimProceeds",
-        args: [],
-        maxFeePerGas: parseGwei("0.17"),
-        maxPriorityFeePerGas: parseGwei("0.17"),
-        gas: 3000000n
-      })
-
-      await walletClient.writeContract(claimProceedsRequest.request);
-      await testClient.mine({ blocks: 1 });
-
-      const proceedsRead2 = await publicClient.readContract({
-        address: proxyContractAddress,
-        abi: friendTechProxyABI,
-        functionName: "proceeds",
-        args: [account1]
-      })
-
-      assert.equal(proceedsRead2, 0n)
-
-      const balance = await publicClient.getBalance({ 
-        address: account1,
-      })
-
-      if (balance < parseEther("50") - parseEther("0.29") || balance > parseEther("50") + parseEther("0.31")) {
-        assert(false)
-      }
-
       // Initialize account1 market
       const buyFirstShareRequest = await publicClient.simulateContract({
         account: account1,
@@ -845,5 +814,36 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
       })
 
       assert.equal(internalBalanceRead3, 2n);
+      
+      const claimProceedsRequest = await publicClient.simulateContract({
+        account: account1,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "claimProceeds",
+        args: [],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(claimProceedsRequest.request);
+      await testClient.mine({ blocks: 1 });
+
+      const proceedsRead2 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "proceeds",
+        args: [account1]
+      })
+
+      assert.equal(proceedsRead2, 0n)
+
+      const balance = await publicClient.getBalance({ 
+        address: account1,
+      })
+
+      if (balance < parseEther("49.678") || balance > parseEther("49.68")) {
+        assert(false)
+      }
     })
 })

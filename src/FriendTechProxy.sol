@@ -26,6 +26,8 @@ contract FriendTechProxy is Ownable {
     mapping(address => uint256) public proceeds;
     // SharesSubject => Arr of Contribution
     mapping (address => Contribution[]) public contributionArrays;
+    // SharesSubject => number of settlements
+    mapping(address => uint256) public presaleSettled;
 
     struct Contribution {
         address buyer;
@@ -134,6 +136,7 @@ contract FriendTechProxy is Ownable {
 
     // Creator claim proceeds
     function claimProceeds() external {
+        require(presaleSettled[msg.sender] >= contributionArrays[msg.sender].length, "Presale not settled");
         uint256 amount = proceeds[msg.sender];
         proceeds[msg.sender] = 0;
         (bool sent,) = msg.sender.call{value: amount}("");
@@ -141,20 +144,24 @@ contract FriendTechProxy is Ownable {
     }
 
     // Bulk settle presale contributors. Won't work if you did too massive of a presale but this is unlikely given FriendTech bonding curve being exponential
-    // Owner should only run this once to settle all contributors
     function settleContributors() external {
+        require(presaleSettled[msg.sender] == 0, "Already settled");
         for (uint i=0; i<contributionArrays[msg.sender].length; i++) {
             Contribution memory c = contributionArrays[msg.sender][i];
             _transfer(msg.sender, msg.sender, c.buyer, c.keysBought);
         }
+        presaleSettled[msg.sender] = contributionArrays[msg.sender].length;
     }
 
     // In case we get massive arrays
     function settleContributorsSpecific(uint256 _start, uint256 _end) external {
         for (uint i=_start; i<_end; i++) {
-            Contribution memory c = contributionArrays[msg.sender][i];
+            Contribution storage c = contributionArrays[msg.sender][i];
+            require(c.buyer != address(0), "Already settled user");
             _transfer(msg.sender, msg.sender, c.buyer, c.keysBought);
+            c.buyer = address(0);
         }
+        presaleSettled[msg.sender] = presaleSettled[msg.sender].add(_end).sub(_start);
     }
 
     // Buy shares for yourself or someone else on proxy contract
