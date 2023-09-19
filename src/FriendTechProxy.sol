@@ -107,6 +107,11 @@ contract FriendTechProxy is Ownable {
         }
     }
 
+    // Set presale price
+    function setPresalePrice(uint256 _price) external {
+        presalePricePerKey[msg.sender] = _price;
+    }
+
     // Contribute to presale
     function contribute(address _sharesSubject, uint256 _keys) external payable {
         require(whitelist[_sharesSubject][msg.sender] >= _keys, "Not whitelisted");
@@ -117,7 +122,7 @@ contract FriendTechProxy is Ownable {
             buyer: msg.sender,
             keysBought: _keys
         }));
-        proceeds[_sharesSubject] = msg.value;
+        proceeds[_sharesSubject] = proceeds[_sharesSubject].add(msg.value);
     }
 
     // Set whitelist
@@ -136,6 +141,7 @@ contract FriendTechProxy is Ownable {
     }
 
     // Bulk settle presale contributors. Won't work if you did too massive of a presale but this is unlikely given FriendTech bonding curve being exponential
+    // Owner should only run this once to settle all contributors
     function settleContributors() external {
         for (uint i=0; i<contributionArrays[msg.sender].length; i++) {
             Contribution memory c = contributionArrays[msg.sender][i];

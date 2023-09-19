@@ -554,5 +554,296 @@ describe("FriendTech Proxy Tests", { concurrency: false }, async () => {
     })
 
     test("Presale tests", async () => {
+      const setPresalePriceRequest = await publicClient.simulateContract({
+        account: account1,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "setPresalePrice",
+        args: [parseEther("0.1")],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(setPresalePriceRequest.request);
+      await testClient.mine({ blocks: 1 });
+
+      const presalePriceRead = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "presalePricePerKey",
+        args: [account1]
+      })
+
+      assert.equal(presalePriceRead, parseEther("0.1"));
+
+      const setWhiteListRequest = await publicClient.simulateContract({
+        account: account1,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "setWhitelist",
+        args: [[account2, account3], [1n, 2n]],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(setWhiteListRequest.request);
+      await testClient.mine({ blocks: 1 });
+
+      const whitelistRead1 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "whitelist",
+        args: [account1, account2]
+      })
+
+      assert.equal(whitelistRead1, 1n);
+
+      const whitelistRead2 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "whitelist",
+        args: [account1, account3]
+      })
+
+      assert.equal(whitelistRead2, 2n);
+
+      // Try to contribute with a non-whitelisted account
+      try {
+        await publicClient.simulateContract({
+          account: account1,
+          address: proxyContractAddress,
+          abi: friendTechProxyABI,
+          functionName: "contribute",
+          args: [account1, 1n],
+          maxFeePerGas: parseGwei("0.17"),
+          maxPriorityFeePerGas: parseGwei("0.17"),
+          gas: 3000000n
+        })
+      } catch (e) {
+        assert(String(e).includes("Not whitelisted"))
+      }
+
+      // Try to contribute less than key price
+      try {
+        await publicClient.simulateContract({
+          account: account3,
+          address: proxyContractAddress,
+          abi: friendTechProxyABI,
+          functionName: "contribute",
+          args: [account1, 2n],
+          maxFeePerGas: parseGwei("0.17"),
+          maxPriorityFeePerGas: parseGwei("0.17"),
+          gas: 3000000n,
+          value: parseEther("0.199")
+        })
+      } catch (e) {
+        assert(String(e).includes("Not enough ETH"))
+      }
+
+      const contributeRequest1 = await publicClient.simulateContract({
+        account: account2,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "contribute",
+        args: [account1, 1n],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n,
+        value: parseEther("0.1")
+      })
+
+      await walletClient.writeContract(contributeRequest1.request);
+      await testClient.mine({ blocks: 1 });
+
+      const contributeRequest2 = await publicClient.simulateContract({
+        account: account3,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "contribute",
+        args: [account1, 2n],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n,
+        value: parseEther("0.2")
+      })
+
+      await walletClient.writeContract(contributeRequest2.request);
+      await testClient.mine({ blocks: 1 });
+
+      const whitelistRead3 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "whitelist",
+        args: [account1, account2]
+      })
+
+      assert.equal(whitelistRead3, 0n);
+
+      const whitelistRead4 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "whitelist",
+        args: [account1, account3]
+      })
+
+      assert.equal(whitelistRead4, 0n);
+
+      const contributionsRead1 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "contributions",
+        args: [account1, account2]
+      })
+
+      assert.equal(contributionsRead1, 1n);
+
+      const contributionsRead2 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "contributions",
+        args: [account1, account3]
+      })
+
+      assert.equal(contributionsRead2, 2n);
+
+      const proceedsRead1 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "proceeds",
+        args: [account1]
+      })
+
+      assert.equal(proceedsRead1, parseEther("0.3"))
+
+      const contributionsArrayRead1 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "contributionArrays",
+        args: [account1, 0]
+      }) as any[]
+
+      assert.equal(contributionsArrayRead1[0], account2)
+      assert.equal(contributionsArrayRead1[1], 1n)
+
+      const contributionsArrayRead2 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "contributionArrays",
+        args: [account1, 1]
+      }) as any[]
+
+      assert.equal(contributionsArrayRead2[0], account3)
+      assert.equal(contributionsArrayRead2[1], 2n)
+
+      const claimProceedsRequest = await publicClient.simulateContract({
+        account: account1,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "claimProceeds",
+        args: [],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(claimProceedsRequest.request);
+      await testClient.mine({ blocks: 1 });
+
+      const proceedsRead2 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "proceeds",
+        args: [account1]
+      })
+
+      assert.equal(proceedsRead2, 0n)
+
+      const balance = await publicClient.getBalance({ 
+        address: account1,
+      })
+
+      if (balance < parseEther("50") - parseEther("0.29") || balance > parseEther("50") + parseEther("0.31")) {
+        assert(false)
+      }
+
+      // Initialize account1 market
+      const buyFirstShareRequest = await publicClient.simulateContract({
+        account: account1,
+        address: friendTechContractAddress,
+        abi: iFriendtechSharesV1ABI,
+        functionName: "buyShares",
+        args: [account1, 1n],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(buyFirstShareRequest.request);
+
+      const sharesToSnipe = 30n
+      const priceRead1 : bigint = await publicClient.readContract({
+          address: friendTechContractAddress,
+          abi: iFriendtechSharesV1ABI,
+          functionName: "getBuyPriceAfterFee",
+          args: [account1, sharesToSnipe]
+      }) as bigint
+      
+      const snipeShareRequest = await publicClient.simulateContract({
+        account: account1,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "snipeShares",
+        args: [sharesToSnipe],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n,
+        value: priceRead1
+      })
+
+      await walletClient.writeContract(snipeShareRequest.request);
+      await testClient.mine({ blocks: 1 });
+
+      const settleContributorsRequest = await publicClient.simulateContract({
+        account: account1,
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "settleContributors",
+        args: [],
+        maxFeePerGas: parseGwei("0.17"),
+        maxPriorityFeePerGas: parseGwei("0.17"),
+        gas: 3000000n
+      })
+
+      await walletClient.writeContract(settleContributorsRequest.request);
+      await testClient.mine({ blocks: 1 });
+
+      const internalBalanceRead1 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "internalBalances",
+        args: [account1, account1]
+      })
+
+      assert.equal(internalBalanceRead1, 27n);
+
+      const internalBalanceRead2 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "internalBalances",
+        args: [account1, account2]
+      })
+
+      assert.equal(internalBalanceRead2, 1n);
+
+      const internalBalanceRead3 = await publicClient.readContract({
+        address: proxyContractAddress,
+        abi: friendTechProxyABI,
+        functionName: "internalBalances",
+        args: [account1, account3]
+      })
+
+      assert.equal(internalBalanceRead3, 2n);
     })
 })
