@@ -43,7 +43,15 @@ contract FriendTechProxy is Ownable {
 
     // If for some reason ERC20 tokens of value gets transferred into this contract, allow withdrawal
     function emergencyWithdraw(address _token, address _to, uint256 _amount) external onlyOwner {
-        IERC20(_token).transfer(_to, _amount);
+
+        if (token == 0x0000000000000000000000000000000000000000) {
+            (bool sent, ) = payable(_to).call{value: _amount}("");
+            require(sent, "Error sending Ether!");
+        } else {
+            IERC20 token = IERC20(token);
+            token.transfer(_to, _amount);
+        }
+
     }
 
     function snipeShares(uint256 _amount) public payable {
@@ -97,7 +105,7 @@ contract FriendTechProxy is Ownable {
         _transfer(_sharesSubject, _from, _to, _amount);
     }
 
-    // Approve shares from current owner to aprovee.
+    // Approve shares from current owner to aprove.
     function approve(address _sharesSubject, address _to, uint256 _amount) external {
         _approve(_sharesSubject, msg.sender, _to, _amount);
     }
@@ -170,6 +178,9 @@ contract FriendTechProxy is Ownable {
         require(buyPrice <= msg.value, "Not enough ETH received");
         friendTech.buyShares{value: buyPrice}(_sharesSubject, _amount);
         internalBalances[_sharesSubject][_to] = internalBalances[_sharesSubject][_to].add(_amount);
+
+        (bool sent, ) = payable(msg.sender).call{value: msg.value - buyPrice}("");
+        require(sent, "Failed to send Ether!");
 
         emit Transfer(_sharesSubject, address(0), _to, _amount);
     }
