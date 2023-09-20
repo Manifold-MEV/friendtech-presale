@@ -43,15 +43,12 @@ contract FriendTechProxy is Ownable {
 
     // If for some reason ERC20 tokens of value gets transferred into this contract, allow withdrawal
     function emergencyWithdraw(address _token, address _to, uint256 _amount) external onlyOwner {
-
         if (_token == 0x0000000000000000000000000000000000000000) {
             (bool sent, ) = payable(_to).call{value: _amount}("");
             require(sent, "Error sending Ether!");
         } else {
-            IERC20_token = IERC20(_token);
-            token.transfer(_to, _amount);
+            IERC20(_token).transfer(_to, _amount);
         }
-
     }
 
     function snipeShares(uint256 _amount) public payable {
@@ -60,7 +57,7 @@ contract FriendTechProxy is Ownable {
         friendTech.buyShares{value: buyPrice}(msg.sender, _amount);
         internalBalances[msg.sender][msg.sender] = _amount;
 
-        (bool sent, ) = payable(msg.sender).call{value: msg.value - buyPrice}("");
+        (bool sent, ) = payable(msg.sender).call{value: msg.value.sub(buyPrice)}("");
         require(sent, "Failed to send Ether!");
 
         emit Transfer(msg.sender, address(0), msg.sender, _amount);
@@ -128,7 +125,8 @@ contract FriendTechProxy is Ownable {
     // Contribute to presale
     function contribute(address _sharesSubject, uint256 _keys) external payable {
         require(whitelist[_sharesSubject][msg.sender] >= _keys, "Not whitelisted");
-        require(msg.value >= _keys.mul(presalePricePerKey[_sharesSubject]), "Not enough ETH");
+        uint256 amount = _keys.mul(presalePricePerKey[_sharesSubject]);
+        require(msg.value >= amount, "Not enough ETH");
         whitelist[_sharesSubject][msg.sender] = whitelist[_sharesSubject][msg.sender].sub(_keys);
         contributions[_sharesSubject][msg.sender] = contributions[_sharesSubject][msg.sender].add(_keys);
         contributionArrays[_sharesSubject].push(Contribution({
@@ -136,6 +134,10 @@ contract FriendTechProxy is Ownable {
             keysBought: _keys
         }));
         proceeds[_sharesSubject] = proceeds[_sharesSubject].add(msg.value);
+
+        (bool sent, ) = payable(msg.sender).call{value: msg.value.sub(amount)}("");
+        require(sent, "Failed to send Ether!");
+
     }
 
     // Set whitelist
@@ -182,7 +184,7 @@ contract FriendTechProxy is Ownable {
         friendTech.buyShares{value: buyPrice}(_sharesSubject, _amount);
         internalBalances[_sharesSubject][_to] = internalBalances[_sharesSubject][_to].add(_amount);
 
-        (bool sent, ) = payable(msg.sender).call{value: msg.value - buyPrice}("");
+        (bool sent, ) = payable(msg.sender).call{value: msg.value.sub(buyPrice)}("");
         require(sent, "Failed to send Ether!");
 
         emit Transfer(_sharesSubject, address(0), _to, _amount);
