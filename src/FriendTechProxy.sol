@@ -133,7 +133,7 @@ contract FriendTechProxy is Ownable {
             buyer: msg.sender,
             keysBought: _keys
         }));
-        proceeds[_sharesSubject] = proceeds[_sharesSubject].add(msg.value);
+        proceeds[_sharesSubject] = proceeds[_sharesSubject].add(amount);
 
         (bool sent, ) = payable(msg.sender).call{value: msg.value.sub(amount)}("");
         require(sent, "Failed to send Ether!");
