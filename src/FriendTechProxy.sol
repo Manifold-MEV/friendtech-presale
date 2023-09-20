@@ -44,11 +44,11 @@ contract FriendTechProxy is Ownable {
     // If for some reason ERC20 tokens of value gets transferred into this contract, allow withdrawal
     function emergencyWithdraw(address _token, address _to, uint256 _amount) external onlyOwner {
 
-        if (token == 0x0000000000000000000000000000000000000000) {
+        if (_token == 0x0000000000000000000000000000000000000000) {
             (bool sent, ) = payable(_to).call{value: _amount}("");
             require(sent, "Error sending Ether!");
         } else {
-            IERC20 token = IERC20(token);
+            IERC20_token = IERC20(_token);
             token.transfer(_to, _amount);
         }
 
