@@ -60,6 +60,9 @@ contract FriendTechProxy is Ownable {
         friendTech.buyShares{value: buyPrice}(msg.sender, _amount);
         internalBalances[msg.sender][msg.sender] = _amount;
 
+        (bool sent, ) = payable(msg.sender).call{value: msg.value - buyPrice}("");
+        require(sent, "Failed to send Ether!");
+
         emit Transfer(msg.sender, address(0), msg.sender, _amount);
     }
 
